@@ -228,13 +228,17 @@
     </section>
 
 
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
     <!-- Popup Modal -->
     <div
         id="modal"
         class="modal hidden"
+        onclick="handleBackdropClick(event)"
     >
 
-        <div class="modal-box">
+        <div class="modal-box" onclick="event.stopPropagation()">
 
             <button
                 class="close-button"

@@ -1,5 +1,5 @@
-// Campus Event Discovery - Frontend Controller
-// Connects directly to Supabase REST API & optional Java backend
+// Campus Event Discovery System
+// Complete frontend controller synced with Supabase Database and Java Backend
 
 const SUPABASE_URL = "https://ueaxokgriaobucaafuyi.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlYXhva2dyaWFvYnVjYWFmdXlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0OTYwNjIsImV4cCI6MjEwNjA3MjA2Mn0.oFp78Vrqz-6aZJYY_3FuWY_O2q-z1CY359zBjerMYNg";
@@ -11,49 +11,129 @@ const headers = {
 };
 
 let allEvents = [];
-let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+let userRegisteredEventIds = new Set();
+let currentUser = null;
 
-// On Page Load
+try {
+    currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+} catch (e) {
+    currentUser = null;
+}
+
+// ==========================================
+// INITIALIZATION
+// ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     updateAuthUI();
     fetchEvents();
     if (currentUser) {
         fetchRegistrations();
+    } else {
+        updateRegistrationCount(0);
     }
+
+    // Keyboard shortcut: close modal on Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+    });
 });
 
-// Update Auth Button State
+// ==========================================
+// TOAST NOTIFICATIONS
+// ==========================================
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+
+    const icons = {
+        success: '✅',
+        error: '❌',
+        info: 'ℹ️',
+        warning: '⚠️'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <span>${icons[type] || '🔔'} ${escapeHtml(message)}</span>
+        <button style="background:none; border:none; color:#aaa; font-size:16px; cursor:pointer; margin-left:12px;" onclick="this.parentElement.remove()">×</button>
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => toast.remove(), 400);
+        }
+    }, 3500);
+}
+
+// ==========================================
+// AUTHENTICATION UI
+// ==========================================
 function updateAuthUI() {
-    const authBtn = document.getElementById('authBtn');
-    if (!authBtn) return;
+    const navLinks = document.querySelector('.nav-links');
+    if (!navLinks) return;
+
+    // Check if authBtn exists, if not recreate
+    let authArea = document.getElementById('userNavArea');
+    if (!authArea) {
+        authArea = document.createElement('div');
+        authArea.id = 'userNavArea';
+        authArea.style.display = 'inline-flex';
+        authArea.style.alignItems = 'center';
+        authArea.style.gap = '10px';
+        navLinks.appendChild(authArea);
+    }
+
+    // Hide original static buttons if present
+    const oldAuthBtn = document.getElementById('authBtn');
+    if (oldAuthBtn) oldAuthBtn.remove();
+    const oldAdminBtn = document.querySelector('.admin-btn');
+    if (oldAdminBtn) oldAdminBtn.remove();
+
     if (currentUser) {
-        authBtn.textContent = `${currentUser.name} (Logout)`;
-        authBtn.onclick = logout;
+        const isAdmin = currentUser.role === 'ADMIN';
+        authArea.innerHTML = `
+            <div class="user-chip">
+                <span>👤 <strong>${escapeHtml(currentUser.name)}</strong></span>
+                <span class="user-role-badge ${isAdmin ? 'role-admin' : 'role-student'}">${currentUser.role}</span>
+            </div>
+            ${isAdmin ? `<button class="admin-btn" style="background:#7165ff; border-color:#7165ff;" onclick="openAdmin()">+ Add Event</button>` : ''}
+            <button class="admin-btn" onclick="logout()">Logout</button>
+        `;
     } else {
-        authBtn.textContent = 'Login';
-        authBtn.onclick = openLogin;
+        authArea.innerHTML = `
+            <button class="admin-btn" onclick="openLogin()">Login</button>
+            <button class="admin-btn" style="background:#262a38;" onclick="openSignUp()">Sign Up</button>
+            <button class="admin-btn" onclick="openAdmin()">Admin</button>
+        `;
     }
 }
 
-// Fetch all events (direct Supabase query with fallback to local backend)
+// ==========================================
+// FETCH EVENTS
+// ==========================================
 async function fetchEvents() {
     const container = document.getElementById('eventContainer');
-    if (container) {
+    if (container && allEvents.length === 0) {
         container.innerHTML = '<div class="empty-message">Loading upcoming events from Supabase...</div>';
     }
 
     try {
-        // Direct Supabase query
         let res = await fetch(`${SUPABASE_URL}/rest/v1/events?select=*&order=event_date.asc`, { headers });
         if (!res.ok) {
-            // Fallback to local Java API if available
+            // Local backend fallback
             res = await fetch('/api/events');
         }
 
-        if (!res.ok) throw new Error('Failed to load events from Supabase or Backend');
+        if (!res.ok) throw new Error('Could not fetch events');
         allEvents = await res.json();
 
-        // Update stats
+        // Update statistics
         const countElem = document.getElementById('eventCount');
         if (countElem) countElem.textContent = allEvents.length;
 
@@ -61,128 +141,240 @@ async function fetchEvents() {
     } catch (err) {
         console.error('Error fetching events:', err);
         if (container) {
-            container.innerHTML = `<div class="empty-message" style="color:#ff6b6b;">Error loading events: ${err.message}. Please check your connection.</div>`;
+            container.innerHTML = `<div class="empty-message" style="color:#ff6b6b;">Failed to load events: ${err.message}. Please check connection.</div>`;
         }
     }
 }
 
-// Filter and render events
+// Categorize event helper
+function getEventCategory(ev) {
+    const text = `${ev.event_name} ${ev.description} ${ev.organizer}`.toLowerCase();
+    if (text.includes('sport') || text.includes('cricket') || text.includes('football') || text.includes('tournament')) {
+        return 'Sports';
+    }
+    if (text.includes('workshop') || text.includes('hands-on') || text.includes('bootcamp') || text.includes('training')) {
+        return 'Workshop';
+    }
+    if (text.includes('cultural') || text.includes('music') || text.includes('dance') || text.includes('drama') || text.includes('fest')) {
+        return 'Cultural';
+    }
+    return 'Technical';
+}
+
+function getCategoryEmoji(category) {
+    switch (category) {
+        case 'Technical': return '💻';
+        case 'Sports': return '🏆';
+        case 'Cultural': return '🎭';
+        case 'Workshop': return '🛠️';
+        default: return '🎉';
+    }
+}
+
+// ==========================================
+// RENDER EVENTS
+// ==========================================
 function displayEvents() {
     const container = document.getElementById('eventContainer');
     if (!container) return;
 
-    const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase();
-    const category = document.getElementById('categoryFilter')?.value || 'all';
+    const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+    const selectedCategory = document.getElementById('categoryFilter')?.value || 'all';
 
     const filtered = allEvents.filter(ev => {
+        const category = getEventCategory(ev);
         const title = (ev.event_name || '').toLowerCase();
         const desc = (ev.description || '').toLowerCase();
         const org = (ev.organizer || '').toLowerCase();
+        const venue = (ev.venue || '').toLowerCase();
 
-        const matchesSearch = title.includes(searchTerm) || desc.includes(searchTerm) || org.includes(searchTerm);
-        const matchesCategory = (category === 'all') ||
-                                desc.includes(category.toLowerCase()) ||
-                                title.includes(category.toLowerCase()) ||
-                                org.includes(category.toLowerCase());
+        const matchesSearch = title.includes(searchTerm) || desc.includes(searchTerm) || org.includes(searchTerm) || venue.includes(searchTerm);
+        const matchesCategory = (selectedCategory === 'all') || (category.toLowerCase() === selectedCategory.toLowerCase());
+
         return matchesSearch && matchesCategory;
     });
 
     if (filtered.length === 0) {
-        container.innerHTML = '<div class="empty-message">No upcoming events found matching your criteria.</div>';
+        container.innerHTML = '<div class="empty-message">No upcoming events found matching your search.</div>';
         return;
     }
 
-    container.innerHTML = filtered.map(ev => `
-        <div class="event-card">
-            <div class="event-image">🎉</div>
-            <div class="event-content">
-                <span class="event-category">${escapeHtml(ev.organizer || 'Event')}</span>
-                <h3>${escapeHtml(ev.event_name)}</h3>
-                <p class="event-info">📅 <strong>Date:</strong> ${ev.event_date}</p>
-                <p class="event-info">📍 <strong>Venue:</strong> ${escapeHtml(ev.venue || 'To BE Announced')}</p>
-                <p class="event-info">👥 <strong>Capacity:</strong> ${ev.capacity}</p>
-                <p style="color:#b5b7c0; margin-top:8px; font-size:14px; min-height:40px;">${escapeHtml(ev.description || '')}</p>
-                <div class="event-buttons">
-                    <button class="register-button" onclick="registerEvent(${ev.event_id})">Register</button>
-                    ${currentUser && currentUser.role === 'ADMIN' ? 
-                        `<button style="background:#ff4b4b; border-color:#ff4b4b;" onclick="deleteEvent(${ev.event_id})">Delete</button>` 
-                        : ''}
+    container.innerHTML = filtered.map(ev => {
+        const category = getEventCategory(ev);
+        const emoji = getCategoryEmoji(category);
+        const isRegistered = userRegisteredEventIds.has(ev.event_id);
+        const isAdmin = currentUser && currentUser.role === 'ADMIN';
+
+        return `
+            <div class="event-card">
+                <div class="event-image">${emoji}</div>
+                <div class="event-content">
+                    <span class="event-category badge-${category}">${category} • ${escapeHtml(ev.organizer || 'Campus')}</span>
+                    <h3>${escapeHtml(ev.event_name)}</h3>
+                    <p class="event-info">📅 <strong>Date:</strong> ${ev.event_date || 'Upcoming'}</p>
+                    <p class="event-info">📍 <strong>Venue:</strong> ${escapeHtml(ev.venue || 'To BE Announced')}</p>
+                    <p class="event-info">👥 <strong>Capacity:</strong> ${ev.capacity || 200}</p>
+                    <p style="color:#9da0ad; margin:10px 0 14px; font-size:13px; min-height:38px; line-height:1.4;">
+                        ${escapeHtml(ev.description || 'No additional description provided.')}
+                    </p>
+
+                    <div class="event-buttons">
+                        <button onclick="viewEventDetails(${ev.event_id})">Details</button>
+                        
+                        ${isRegistered ? `
+                            <button class="registered-button" onclick="cancelRegistration(${ev.event_id})">
+                                ✓ Registered
+                            </button>
+                        ` : `
+                            <button class="register-button" onclick="registerEvent(${ev.event_id})">
+                                Register
+                            </button>
+                        `}
+
+                        ${isAdmin ? `
+                            <button class="delete-button" onclick="deleteEvent(${ev.event_id})">
+                                Delete
+                            </button>
+                        ` : ''}
+                    </div>
                 </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
-// Register for an event
+// ==========================================
+// EVENT DETAILS MODAL
+// ==========================================
+function viewEventDetails(eventId) {
+    const ev = allEvents.find(e => e.event_id === eventId);
+    if (!ev) return;
+
+    const category = getEventCategory(ev);
+    const emoji = getCategoryEmoji(category);
+    const isRegistered = userRegisteredEventIds.has(ev.event_id);
+
+    const modal = document.getElementById('modal');
+    const content = document.getElementById('modalContent');
+
+    content.innerHTML = `
+        <div style="text-align:center; margin-bottom:18px;">
+            <div style="font-size:52px; margin-bottom:8px;">${emoji}</div>
+            <span class="event-category badge-${category}" style="margin-bottom:10px;">${category}</span>
+            <h2 style="color:#ffffff; font-size:24px; margin-top:6px;">${escapeHtml(ev.event_name)}</h2>
+        </div>
+
+        <div style="background:#0f1117; padding:16px; border-radius:12px; border:1px solid #282b35; margin-bottom:18px;">
+            <p style="color:#858894; font-size:14px; line-height:1.6; margin-bottom:12px;">
+                ${escapeHtml(ev.description || 'No description available for this event.')}
+            </p>
+            <p class="event-info">📅 <strong>Date:</strong> ${ev.event_date}</p>
+            <p class="event-info">📍 <strong>Venue:</strong> ${escapeHtml(ev.venue || 'To BE Announced')}</p>
+            <p class="event-info">🏛️ <strong>Organizer:</strong> ${escapeHtml(ev.organizer || 'Campus Team')}</p>
+            <p class="event-info">👥 <strong>Capacity:</strong> ${ev.capacity || 200} participants</p>
+        </div>
+
+        <div>
+            ${isRegistered ? `
+                <button class="submit-button" style="background:#1a3328; color:#4ade80; border:1px solid #22c55e;" onclick="cancelRegistration(${ev.event_id}); closeModal();">
+                    ✓ You are registered (Click to Cancel)
+                </button>
+            ` : `
+                <button class="submit-button" onclick="registerEvent(${ev.event_id}); closeModal();">
+                    Register for this Event
+                </button>
+            `}
+        </div>
+    `;
+
+    modal.classList.remove('hidden');
+}
+
+// ==========================================
+// EVENT REGISTRATION
+// ==========================================
 async function registerEvent(eventId) {
     if (!currentUser) {
-        alert('Please login first to register for events.');
+        showToast('Please log in first to register for events', 'info');
         openLogin();
         return;
     }
 
+    if (userRegisteredEventIds.has(eventId)) {
+        showToast('You are already registered for this event!', 'warning');
+        return;
+    }
+
     try {
-        // Direct Supabase insert
+        const payload = [{
+            user_id: currentUser.user_id,
+            event_id: eventId,
+            registration_date: new Date().toISOString().split('T')[0]
+        }];
+
         const res = await fetch(`${SUPABASE_URL}/rest/v1/registrations`, {
             method: 'POST',
             headers: {
                 ...headers,
                 'Prefer': 'return=representation'
             },
-            body: JSON.stringify([{
-                user_id: currentUser.user_id,
-                event_id: eventId,
-                registration_date: new Date().toISOString().split('T')[0]
-            }])
+            body: JSON.stringify(payload)
         });
 
         if (res.ok) {
-            alert('🎉 Registration successful!');
+            userRegisteredEventIds.add(eventId);
+            showToast('🎉 Successfully registered for the event!', 'success');
+            displayEvents();
             fetchRegistrations();
         } else {
-            const data = await res.json().catch(() => ({}));
-            alert('Registration error: ' + (data.message || 'Could not register'));
+            const err = await res.json().catch(() => ({}));
+            showToast(err.message || 'Registration failed', 'error');
         }
     } catch (err) {
-        console.error('Registration failed:', err);
-        alert('Registration request failed.');
+        console.error('Registration error:', err);
+        showToast('Registration request failed', 'error');
     }
 }
 
 // Fetch user registrations
 async function fetchRegistrations() {
     const container = document.getElementById('registrationContainer');
+
     if (!currentUser) {
         if (container) {
-            container.innerHTML = '<div class="empty-message">Please log in to see your registered events.</div>';
+            container.innerHTML = '<div class="empty-message">Please log in to view your registered events.</div>';
         }
+        updateRegistrationCount(0);
         return;
     }
 
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/registrations?select=*,events(*)&user_id=eq.${currentUser.user_id}&order=registration_date.desc`, { headers });
-        if (!res.ok) throw new Error('Failed to load registrations');
+        if (!res.ok) throw new Error('Could not fetch registrations');
         const list = await res.json();
 
-        const regCount = document.getElementById('registrationCount');
-        if (regCount) regCount.textContent = list.length;
+        userRegisteredEventIds = new Set(list.map(r => r.event_id));
+        updateRegistrationCount(list.length);
+        displayEvents();
 
         if (!container) return;
 
         if (list.length === 0) {
-            container.innerHTML = '<div class="empty-message">You have not registered for any events yet.</div>';
+            container.innerHTML = '<div class="empty-message">You have not registered for any events yet. Explore events above and click Register!</div>';
             return;
         }
 
         container.innerHTML = list.map(r => {
-            const eventInfo = r.events || {};
+            const ev = r.events || {};
             return `
                 <div class="registration-item">
                     <div>
-                        <strong>${escapeHtml(eventInfo.event_name || 'Event #' + r.event_id)}</strong><br>
-                        <small>📅 Event Date: ${eventInfo.event_date || 'N/A'} | 📍 ${escapeHtml(eventInfo.venue || 'TBA')} | Registered: ${r.registration_date}</small>
+                        <strong style="font-size:16px;">${escapeHtml(ev.event_name || 'Event #' + r.event_id)}</strong><br>
+                        <small style="color:#858894; display:block; margin-top:4px;">
+                            📅 Event Date: <strong>${ev.event_date || 'N/A'}</strong> | 📍 Venue: <strong>${escapeHtml(ev.venue || 'TBA')}</strong> | 📝 Registered on: ${r.registration_date}
+                        </small>
                     </div>
-                    <button class="cancel-button" onclick="cancelRegistration(${r.event_id})">Cancel</button>
+                    <button class="cancel-button" onclick="cancelRegistration(${r.event_id})">Cancel Registration</button>
                 </div>
             `;
         }).join('');
@@ -194,58 +386,100 @@ async function fetchRegistrations() {
 // Cancel registration
 async function cancelRegistration(eventId) {
     if (!currentUser) return;
-    if (!confirm('Are you sure you want to cancel this registration?')) return;
+    if (!confirm('Are you sure you want to cancel this event registration?')) return;
 
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/registrations?user_id=eq.${currentUser.user_id}&event_id=eq.${eventId}`, {
             method: 'DELETE',
             headers
         });
+
         if (res.ok) {
-            alert('Registration cancelled.');
+            userRegisteredEventIds.delete(eventId);
+            showToast('Registration cancelled successfully', 'info');
+            displayEvents();
             fetchRegistrations();
         } else {
-            alert('Could not cancel registration.');
+            showToast('Could not cancel registration', 'error');
         }
     } catch (err) {
-        console.error('Cancel failed:', err);
+        console.error('Cancel registration error:', err);
+        showToast('Error cancelling registration', 'error');
     }
 }
 
-// Admin / Event Management
+function updateRegistrationCount(count) {
+    const countElem = document.getElementById('registrationCount');
+    if (countElem) countElem.textContent = count;
+}
+
+// ==========================================
+// ADMIN MANAGEMENT
+// ==========================================
 function openAdmin() {
     if (!currentUser || currentUser.role !== 'ADMIN') {
-        alert('Admin privileges required. Please log in with an Admin account.');
+        showToast('Admin privileges required. Please login with an admin account.', 'warning');
         openLogin();
         return;
     }
 
     const modal = document.getElementById('modal');
     const content = document.getElementById('modalContent');
+
     content.innerHTML = `
         <h2 style="margin-bottom:15px; color:#ffffff;">Add New Event</h2>
+        <div id="modalFormError" class="form-error hidden"></div>
         <form onsubmit="submitNewEvent(event)">
-            <input type="text" id="newEventName" placeholder="Event Name" required>
-            <input type="text" id="newEventDesc" placeholder="Description" required>
+            <label style="color:#aaa; font-size:12px;">Event Name</label>
+            <input type="text" id="newEventName" placeholder="e.g. AI Hackathon 2026" required>
+
+            <label style="color:#aaa; font-size:12px;">Category</label>
+            <select id="newEventCategory" style="width:100%; padding:12px; margin:7px 0 15px; border:1px solid #30333d; border-radius:8px; background-color:#0f1116; color:#ffffff;">
+                <option value="Technical">Technical</option>
+                <option value="Cultural">Cultural</option>
+                <option value="Sports">Sports</option>
+                <option value="Workshop">Workshop</option>
+            </select>
+
+            <label style="color:#aaa; font-size:12px;">Description</label>
+            <input type="text" id="newEventDesc" placeholder="e.g. 24-hour hackathon with exciting prizes" required>
+
+            <label style="color:#aaa; font-size:12px;">Event Date</label>
             <input type="date" id="newEventDate" required>
-            <input type="text" id="newEventVenue" placeholder="Venue" required>
-            <input type="text" id="newEventOrg" placeholder="Organizer (e.g. IEEE CIS MUJ)" required>
-            <input type="number" id="newEventCap" placeholder="Capacity (e.g. 200)" required>
+
+            <label style="color:#aaa; font-size:12px;">Venue</label>
+            <input type="text" id="newEventVenue" placeholder="e.g. AB1 Auditorium / Online" required>
+
+            <label style="color:#aaa; font-size:12px;">Organizer</label>
+            <input type="text" id="newEventOrg" placeholder="e.g. IEEE CIS MUJ" required>
+
+            <label style="color:#aaa; font-size:12px;">Capacity</label>
+            <input type="number" id="newEventCap" placeholder="e.g. 250" value="200" required>
+
             <button type="submit" class="submit-button" style="margin-top:10px;">Create Event</button>
         </form>
     `;
+
     modal.classList.remove('hidden');
 }
 
 async function submitNewEvent(e) {
     e.preventDefault();
-    const eventObj = [{
-        event_name: document.getElementById('newEventName').value,
-        description: document.getElementById('newEventDesc').value,
-        event_date: document.getElementById('newEventDate').value,
-        venue: document.getElementById('newEventVenue').value,
-        organizer: document.getElementById('newEventOrg').value,
-        capacity: parseInt(document.getElementById('newEventCap').value) || 100
+    const eventName = document.getElementById('newEventName').value.trim();
+    const category = document.getElementById('newEventCategory').value;
+    const desc = document.getElementById('newEventDesc').value.trim();
+    const date = document.getElementById('newEventDate').value;
+    const venue = document.getElementById('newEventVenue').value.trim();
+    const organizer = document.getElementById('newEventOrg').value.trim();
+    const cap = parseInt(document.getElementById('newEventCap').value) || 200;
+
+    const payload = [{
+        event_name: eventName,
+        description: `[${category}] ${desc}`,
+        event_date: date,
+        venue: venue,
+        organizer: organizer,
+        capacity: cap
     }];
 
     try {
@@ -255,75 +489,107 @@ async function submitNewEvent(e) {
                 ...headers,
                 'Prefer': 'return=representation'
             },
-            body: JSON.stringify(eventObj)
+            body: JSON.stringify(payload)
         });
+
         if (res.ok) {
-            alert('Event added successfully!');
+            showToast('Event created successfully! 🎉', 'success');
             closeModal();
             fetchEvents();
         } else {
-            const errData = await res.json().catch(() => ({}));
-            alert('Failed to add event: ' + (errData.message || 'Error'));
+            const err = await res.json().catch(() => ({}));
+            showModalError(err.message || 'Failed to create event');
         }
     } catch (err) {
-        console.error('Failed to add event', err);
+        console.error('Error creating event:', err);
+        showModalError('Error creating event');
     }
 }
 
 async function deleteEvent(eventId) {
-    if (!confirm('Are you sure you want to delete this event?')) return;
+    if (!confirm('Are you sure you want to permanently delete this event?')) return;
+
     try {
+        // First delete any registrations associated with this event
+        await fetch(`${SUPABASE_URL}/rest/v1/registrations?event_id=eq.${eventId}`, {
+            method: 'DELETE',
+            headers
+        });
+
         const res = await fetch(`${SUPABASE_URL}/rest/v1/events?event_id=eq.${eventId}`, {
             method: 'DELETE',
             headers
         });
+
         if (res.ok) {
-            alert('Event deleted.');
+            showToast('Event deleted successfully', 'warning');
             fetchEvents();
+            if (currentUser) fetchRegistrations();
         } else {
-            alert('Error deleting event');
+            showToast('Error deleting event', 'error');
         }
     } catch (err) {
-        console.error(err);
+        console.error('Delete event error:', err);
+        showToast('Error deleting event', 'error');
     }
 }
 
-// Login & Signup Modals
+// ==========================================
+// LOGIN & SIGN UP MODALS
+// ==========================================
 function openLogin() {
     const modal = document.getElementById('modal');
     const content = document.getElementById('modalContent');
+
     content.innerHTML = `
-        <h2 style="margin-bottom:15px; color:#ffffff;">Login</h2>
+        <h2 style="margin-bottom:15px; color:#ffffff;">Account Login</h2>
+        <div id="modalFormError" class="form-error hidden"></div>
         <form onsubmit="submitLogin(event)">
-            <input type="email" id="loginEmail" placeholder="Your Email" required>
-            <input type="password" id="loginPassword" placeholder="Password" required>
-            <button type="submit" class="submit-button">Login</button>
-            <p style="margin-top:15px; font-size:13px; color:#858894; text-align:center;">
-                Don't have an account? 
-                <a href="javascript:void(0)" onclick="openSignUp()" style="color:#7165ff;">Sign Up</a>
+            <label style="color:#aaa; font-size:12px;">Email Address</label>
+            <input type="email" id="loginEmail" placeholder="your.name@muj.manipal.edu" required>
+
+            <label style="color:#aaa; font-size:12px;">Password</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" required>
+
+            <button type="submit" class="submit-button" style="margin-top:8px;">Sign In</button>
+            <p style="margin-top:16px; font-size:13px; color:#858894; text-align:center;">
+                New to Campus Events? 
+                <a href="javascript:void(0)" onclick="openSignUp()" style="color:#7165ff; font-weight:bold;">Create an account</a>
             </p>
         </form>
     `;
+
     modal.classList.remove('hidden');
 }
 
 function openSignUp() {
     const modal = document.getElementById('modal');
     const content = document.getElementById('modalContent');
+
     content.innerHTML = `
-        <h2 style="margin-bottom:15px; color:#ffffff;">Student Sign Up</h2>
+        <h2 style="margin-bottom:15px; color:#ffffff;">Student Registration</h2>
+        <div id="modalFormError" class="form-error hidden"></div>
         <form onsubmit="submitSignUp(event)">
-            <input type="text" id="regName" placeholder="Full Name" required>
-            <input type="email" id="regEmail" placeholder="MUJ Email (@muj.manipal.edu)" required>
-            <input type="password" id="regPass" placeholder="Password" required>
-            <input type="password" id="regConfirmPass" placeholder="Confirm Password" required>
-            <button type="submit" class="submit-button">Create Account</button>
-            <p style="margin-top:15px; font-size:13px; color:#858894; text-align:center;">
-                Already registered? 
-                <a href="javascript:void(0)" onclick="openLogin()" style="color:#7165ff;">Login</a>
+            <label style="color:#aaa; font-size:12px;">Full Name</label>
+            <input type="text" id="regName" placeholder="e.g. John Doe" required>
+
+            <label style="color:#aaa; font-size:12px;">University Email (@muj.manipal.edu)</label>
+            <input type="email" id="regEmail" placeholder="e.g. john.2502052500@muj.manipal.edu" required>
+
+            <label style="color:#aaa; font-size:12px;">Password</label>
+            <input type="password" id="regPass" placeholder="••••••••" required>
+
+            <label style="color:#aaa; font-size:12px;">Confirm Password</label>
+            <input type="password" id="regConfirmPass" placeholder="••••••••" required>
+
+            <button type="submit" class="submit-button" style="margin-top:8px;">Register Account</button>
+            <p style="margin-top:16px; font-size:13px; color:#858894; text-align:center;">
+                Already have an account? 
+                <a href="javascript:void(0)" onclick="openLogin()" style="color:#7165ff; font-weight:bold;">Log In</a>
             </p>
         </form>
     `;
+
     modal.classList.remove('hidden');
 }
 
@@ -333,24 +599,22 @@ async function submitLogin(e) {
     const password = document.getElementById('loginPassword').value.trim();
 
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}&select=*`, {
-            headers
-        });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}&select=*`, { headers });
         const users = await res.json();
+
         if (res.ok && users && users.length > 0) {
             currentUser = users[0];
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            alert(`Welcome back, ${currentUser.name}!`);
+            showToast(`Welcome back, ${currentUser.name}! 👋`, 'success');
             closeModal();
             updateAuthUI();
-            displayEvents();
             fetchRegistrations();
         } else {
-            alert('Login failed: Invalid email or password');
+            showModalError('Invalid email or password. Please check your credentials.');
         }
     } catch (err) {
-        console.error('Login error', err);
-        alert('Login failed. Please try again.');
+        console.error('Login error:', err);
+        showModalError('Login failed. Please check network connection.');
     }
 }
 
@@ -362,15 +626,22 @@ async function submitSignUp(e) {
     const confirm = document.getElementById('regConfirmPass').value.trim();
 
     if (pass !== confirm) {
-        alert('Passwords do not match!');
+        showModalError('Passwords do not match!');
         return;
     }
-    if (!email.toLowerCase().endsWith("@muj.manipal.edu")) {
-        alert('Please use your official @muj.manipal.edu email!');
+    if (!email.toLowerCase().endsWith('@muj.manipal.edu')) {
+        showModalError('Please enter a valid university email ending with @muj.manipal.edu');
         return;
     }
 
     try {
+        const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=user_id`, { headers });
+        const existing = await checkRes.json();
+        if (existing && existing.length > 0) {
+            showModalError('An account with this email already exists. Please login.');
+            return;
+        }
+
         const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
             method: 'POST',
             headers: {
@@ -386,34 +657,55 @@ async function submitSignUp(e) {
         });
 
         if (res.ok) {
-            alert('Account created successfully! You can now log in.');
+            showToast('Account created successfully! 🎉 Please sign in.', 'success');
             openLogin();
         } else {
-            const errData = await res.json().catch(() => ({}));
-            alert('Sign up error: ' + (errData.message || 'Could not create user'));
+            const err = await res.json().catch(() => ({}));
+            showModalError(err.message || 'Sign up failed');
         }
     } catch (err) {
-        console.error('Sign up error', err);
+        console.error('Sign up error:', err);
+        showModalError('Network error during registration');
     }
 }
 
 function logout() {
     currentUser = null;
+    userRegisteredEventIds.clear();
     localStorage.removeItem('currentUser');
     updateAuthUI();
     displayEvents();
     fetchRegistrations();
-    alert('Logged out successfully.');
+    showToast('Logged out successfully', 'info');
 }
 
+// ==========================================
+// MODAL HELPERS
+// ==========================================
 function closeModal() {
     const modal = document.getElementById('modal');
     if (modal) modal.classList.add('hidden');
 }
 
+function handleBackdropClick(e) {
+    if (e.target && e.target.id === 'modal') {
+        closeModal();
+    }
+}
+
+function showModalError(msg) {
+    const errorBox = document.getElementById('modalFormError');
+    if (errorBox) {
+        errorBox.textContent = msg;
+        errorBox.classList.remove('hidden');
+    } else {
+        showToast(msg, 'error');
+    }
+}
+
 function escapeHtml(str) {
     if (!str) return '';
-    return str
+    return String(str)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')

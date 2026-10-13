@@ -418,20 +418,15 @@ body {
 
 .event-buttons button {
     flex: 1;
-
     padding: 10px;
-
     border-radius: 8px;
-
     border: 1px solid #30333d;
-
     background-color: #191b22;
-
     color: #ffffff;
-
     cursor: pointer;
-
     font-weight: bold;
+    transition: 0.2s;
+    font-size: 13px;
 }
 
 .event-buttons button:hover {
@@ -440,14 +435,108 @@ body {
 
 .event-buttons .register-button {
     background-color: #7165ff;
-
     color: white;
-
     border-color: #7165ff;
 }
 
 .event-buttons .register-button:hover {
     background-color: #8378ff;
+}
+
+.event-buttons .registered-button {
+    background-color: #1a3328;
+    color: #4ade80;
+    border-color: #22c55e;
+}
+
+.event-buttons .registered-button:hover {
+    background-color: #244637;
+}
+
+.event-buttons .delete-button {
+    background-color: #3b1b1f;
+    color: #ff6b6b;
+    border-color: #ff4d4d;
+}
+
+.event-buttons .delete-button:hover {
+    background-color: #54252a;
+}
+
+/* Category Badges */
+.badge-Technical { background-color: #261f52; color: #a39aff; border: 1px solid #4a3fa0; }
+.badge-Cultural  { background-color: #451b2e; color: #ff85c0; border: 1px solid #8e315e; }
+.badge-Sports    { background-color: #143526; color: #52e396; border: 1px solid #236846; }
+.badge-Workshop  { background-color: #162f4d; color: #69b1ff; border: 1px solid #2b5687; }
+
+/* User chip in navbar */
+.user-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #171922;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid #30333e;
+    font-size: 13px;
+    color: #f5f5f7;
+}
+
+.user-role-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+.role-student { background: #232a42; color: #7c9aff; }
+.role-admin   { background: #472c1c; color: #ffa940; }
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 9999;
+}
+
+.toast {
+    min-width: 280px;
+    max-width: 400px;
+    padding: 14px 18px;
+    border-radius: 10px;
+    background: #181b24;
+    color: #ffffff;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 14px;
+    border: 1px solid #2e323e;
+    animation: slideIn 0.3s ease-out;
+}
+
+.toast-success { border-left: 4px solid #22c55e; }
+.toast-error   { border-left: 4px solid #ef4444; }
+.toast-info    { border-left: 4px solid #3b82f6; }
+.toast-warning { border-left: 4px solid #f59e0b; }
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.form-error {
+    background: #39171b;
+    border: 1px solid #f5222d;
+    color: #ff7875;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 12px;
 }
 
 
