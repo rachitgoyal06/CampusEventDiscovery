@@ -1,4 +1,14 @@
-// Frontend interaction with Java Backend & Supabase Database
+// Campus Event Discovery - Frontend Controller
+// Connects directly to Supabase REST API & optional Java backend
+
+const SUPABASE_URL = "https://ueaxokgriaobucaafuyi.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlYXhva2dyaWFvYnVjYWFmdXlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0OTYwNjIsImV4cCI6MjEwNjA3MjA2Mn0.oFp78Vrqz-6aZJYY_3FuWY_O2q-z1CY359zBjerMYNg";
+
+const headers = {
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Content-Type': 'application/json'
+};
 
 let allEvents = [];
 let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
@@ -25,13 +35,24 @@ function updateAuthUI() {
     }
 }
 
-// Fetch all events from Backend
+// Fetch all events (direct Supabase query with fallback to local backend)
 async function fetchEvents() {
+    const container = document.getElementById('eventContainer');
+    if (container) {
+        container.innerHTML = '<div class="empty-message">Loading upcoming events from Supabase...</div>';
+    }
+
     try {
-        const res = await fetch('/api/events');
-        if (!res.ok) throw new Error('Failed to load events');
+        // Direct Supabase query
+        let res = await fetch(`${SUPABASE_URL}/rest/v1/events?select=*&order=event_date.asc`, { headers });
+        if (!res.ok) {
+            // Fallback to local Java API if available
+            res = await fetch('/api/events');
+        }
+
+        if (!res.ok) throw new Error('Failed to load events from Supabase or Backend');
         allEvents = await res.json();
-        
+
         // Update stats
         const countElem = document.getElementById('eventCount');
         if (countElem) countElem.textContent = allEvents.length;
@@ -39,6 +60,9 @@ async function fetchEvents() {
         displayEvents();
     } catch (err) {
         console.error('Error fetching events:', err);
+        if (container) {
+            container.innerHTML = `<div class="empty-message" style="color:#ff6b6b;">Error loading events: ${err.message}. Please check your connection.</div>`;
+        }
     }
 }
 
@@ -51,11 +75,15 @@ function displayEvents() {
     const category = document.getElementById('categoryFilter')?.value || 'all';
 
     const filtered = allEvents.filter(ev => {
-        const matchesSearch = ev.event_name.toLowerCase().includes(searchTerm) ||
-                              (ev.description && ev.description.toLowerCase().includes(searchTerm));
-        const matchesCategory = (category === 'all') || 
-                                (ev.description && ev.description.toLowerCase().includes(category.toLowerCase())) ||
-                                (ev.event_name && ev.event_name.toLowerCase().includes(category.toLowerCase()));
+        const title = (ev.event_name || '').toLowerCase();
+        const desc = (ev.description || '').toLowerCase();
+        const org = (ev.organizer || '').toLowerCase();
+
+        const matchesSearch = title.includes(searchTerm) || desc.includes(searchTerm) || org.includes(searchTerm);
+        const matchesCategory = (category === 'all') ||
+                                desc.includes(category.toLowerCase()) ||
+                                title.includes(category.toLowerCase()) ||
+                                org.includes(category.toLowerCase());
         return matchesSearch && matchesCategory;
     });
 
@@ -71,9 +99,9 @@ function displayEvents() {
                 <span class="event-category">${escapeHtml(ev.organizer || 'Event')}</span>
                 <h3>${escapeHtml(ev.event_name)}</h3>
                 <p class="event-info">📅 <strong>Date:</strong> ${ev.event_date}</p>
-                <p class="event-info">📍 <strong>Venue:</strong> ${escapeHtml(ev.venue || 'TBA')}</p>
+                <p class="event-info">📍 <strong>Venue:</strong> ${escapeHtml(ev.venue || 'To BE Announced')}</p>
                 <p class="event-info">👥 <strong>Capacity:</strong> ${ev.capacity}</p>
-                <p style="color:#b5b7c0; margin-top:8px; font-size:14px;">${escapeHtml(ev.description || '')}</p>
+                <p style="color:#b5b7c0; margin-top:8px; font-size:14px; min-height:40px;">${escapeHtml(ev.description || '')}</p>
                 <div class="event-buttons">
                     <button class="register-button" onclick="registerEvent(${ev.event_id})">Register</button>
                     ${currentUser && currentUser.role === 'ADMIN' ? 
@@ -94,21 +122,26 @@ async function registerEvent(eventId) {
     }
 
     try {
-        const res = await fetch('/api/registrations', {
+        // Direct Supabase insert
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/registrations`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: currentUser.user_id.toString(),
-                event_id: eventId.toString()
-            })
+            headers: {
+                ...headers,
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify([{
+                user_id: currentUser.user_id,
+                event_id: eventId,
+                registration_date: new Date().toISOString().split('T')[0]
+            }])
         });
 
-        const data = await res.json();
         if (res.ok) {
             alert('🎉 Registration successful!');
             fetchRegistrations();
         } else {
-            alert('Error: ' + (data.error || 'Registration failed'));
+            const data = await res.json().catch(() => ({}));
+            alert('Registration error: ' + (data.message || 'Could not register'));
         }
     } catch (err) {
         console.error('Registration failed:', err);
@@ -118,23 +151,22 @@ async function registerEvent(eventId) {
 
 // Fetch user registrations
 async function fetchRegistrations() {
+    const container = document.getElementById('registrationContainer');
     if (!currentUser) {
-        const regContainer = document.getElementById('registrationContainer');
-        if (regContainer) {
-            regContainer.innerHTML = '<div class="empty-message">Please log in to see your registered events.</div>';
+        if (container) {
+            container.innerHTML = '<div class="empty-message">Please log in to see your registered events.</div>';
         }
         return;
     }
 
     try {
-        const res = await fetch(`/api/registrations?userId=${currentUser.user_id}`);
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/registrations?select=*,events(*)&user_id=eq.${currentUser.user_id}&order=registration_date.desc`, { headers });
         if (!res.ok) throw new Error('Failed to load registrations');
         const list = await res.json();
 
         const regCount = document.getElementById('registrationCount');
         if (regCount) regCount.textContent = list.length;
 
-        const container = document.getElementById('registrationContainer');
         if (!container) return;
 
         if (list.length === 0) {
@@ -142,15 +174,18 @@ async function fetchRegistrations() {
             return;
         }
 
-        container.innerHTML = list.map(r => `
-            <div class="registration-item">
-                <div>
-                    <strong>${escapeHtml(r.event_name)}</strong><br>
-                    <small>📅 Event Date: ${r.event_date} | 📍 ${escapeHtml(r.venue)} | Registered: ${r.registration_date}</small>
+        container.innerHTML = list.map(r => {
+            const eventInfo = r.events || {};
+            return `
+                <div class="registration-item">
+                    <div>
+                        <strong>${escapeHtml(eventInfo.event_name || 'Event #' + r.event_id)}</strong><br>
+                        <small>📅 Event Date: ${eventInfo.event_date || 'N/A'} | 📍 ${escapeHtml(eventInfo.venue || 'TBA')} | Registered: ${r.registration_date}</small>
+                    </div>
+                    <button class="cancel-button" onclick="cancelRegistration(${r.event_id})">Cancel</button>
                 </div>
-                <button class="cancel-button" onclick="cancelRegistration(${r.event_id})">Cancel</button>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     } catch (err) {
         console.error('Error fetching registrations:', err);
     }
@@ -162,8 +197,9 @@ async function cancelRegistration(eventId) {
     if (!confirm('Are you sure you want to cancel this registration?')) return;
 
     try {
-        const res = await fetch(`/api/registrations?userId=${currentUser.user_id}&eventId=${eventId}`, {
-            method: 'DELETE'
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/registrations?user_id=eq.${currentUser.user_id}&event_id=eq.${eventId}`, {
+            method: 'DELETE',
+            headers
         });
         if (res.ok) {
             alert('Registration cancelled.');
@@ -203,19 +239,22 @@ function openAdmin() {
 
 async function submitNewEvent(e) {
     e.preventDefault();
-    const eventObj = {
+    const eventObj = [{
         event_name: document.getElementById('newEventName').value,
         description: document.getElementById('newEventDesc').value,
         event_date: document.getElementById('newEventDate').value,
         venue: document.getElementById('newEventVenue').value,
         organizer: document.getElementById('newEventOrg').value,
-        capacity: document.getElementById('newEventCap').value
-    };
+        capacity: parseInt(document.getElementById('newEventCap').value) || 100
+    }];
 
     try {
-        const res = await fetch('/api/events', {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/events`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                ...headers,
+                'Prefer': 'return=representation'
+            },
             body: JSON.stringify(eventObj)
         });
         if (res.ok) {
@@ -223,7 +262,8 @@ async function submitNewEvent(e) {
             closeModal();
             fetchEvents();
         } else {
-            alert('Failed to add event');
+            const errData = await res.json().catch(() => ({}));
+            alert('Failed to add event: ' + (errData.message || 'Error'));
         }
     } catch (err) {
         console.error('Failed to add event', err);
@@ -233,8 +273,9 @@ async function submitNewEvent(e) {
 async function deleteEvent(eventId) {
     if (!confirm('Are you sure you want to delete this event?')) return;
     try {
-        const res = await fetch(`/api/events?id=${eventId}`, {
-            method: 'DELETE'
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/events?event_id=eq.${eventId}`, {
+            method: 'DELETE',
+            headers
         });
         if (res.ok) {
             alert('Event deleted.');
@@ -288,18 +329,16 @@ function openSignUp() {
 
 async function submitLogin(e) {
     e.preventDefault();
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
 
     try {
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}&select=*`, {
+            headers
         });
-        const data = await res.json();
-        if (res.ok) {
-            currentUser = data;
+        const users = await res.json();
+        if (res.ok && users && users.length > 0) {
+            currentUser = users[0];
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
             alert(`Welcome back, ${currentUser.name}!`);
             closeModal();
@@ -307,41 +346,51 @@ async function submitLogin(e) {
             displayEvents();
             fetchRegistrations();
         } else {
-            alert('Login failed: ' + (data.error || 'Invalid credentials'));
+            alert('Login failed: Invalid email or password');
         }
     } catch (err) {
         console.error('Login error', err);
+        alert('Login failed. Please try again.');
     }
 }
 
 async function submitSignUp(e) {
     e.preventDefault();
-    const name = document.getElementById('regName').value;
-    const email = document.getElementById('regEmail').value;
-    const pass = document.getElementById('regPass').value;
-    const confirm = document.getElementById('regConfirmPass').value;
+    const name = document.getElementById('regName').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const pass = document.getElementById('regPass').value.trim();
+    const confirm = document.getElementById('regConfirmPass').value.trim();
 
     if (pass !== confirm) {
         alert('Passwords do not match!');
         return;
     }
-    if (!email.toLowerCase().endsWith('@muj.manipal.edu')) {
+    if (!email.toLowerCase().endsWith("@muj.manipal.edu")) {
         alert('Please use your official @muj.manipal.edu email!');
         return;
     }
 
     try {
-        const res = await fetch('/api/signup', {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password: pass })
+            headers: {
+                ...headers,
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify([{
+                name,
+                email,
+                password: pass,
+                role: 'STUDENT'
+            }])
         });
-        const data = await res.json();
+
         if (res.ok) {
             alert('Account created successfully! You can now log in.');
             openLogin();
         } else {
-            alert('Sign up error: ' + (data.error || 'Failed'));
+            const errData = await res.json().catch(() => ({}));
+            alert('Sign up error: ' + (errData.message || 'Could not create user'));
         }
     } catch (err) {
         console.error('Sign up error', err);
