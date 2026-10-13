@@ -211,7 +211,7 @@ function displayEvents() {
                 <div class="event-content">
                     <span class="event-category badge-${category}">${category} • ${escapeHtml(ev.organizer || 'Campus')}</span>
                     <h3>${escapeHtml(ev.event_name)}</h3>
-                    <p class="event-info">📅 <strong>Date:</strong> ${ev.event_date || 'Upcoming'}</p>
+                    <p class="event-info">📅 <strong>Date:</strong> ${ev.event_date ? ev.event_date : 'To Be Announced'}</p>
                     <p class="event-info">📍 <strong>Venue:</strong> ${escapeHtml(ev.venue || 'To BE Announced')}</p>
                     <p class="event-info">👥 <strong>Capacity:</strong> ${ev.capacity || 200}</p>
                     <p style="color:#9da0ad; margin:10px 0 14px; font-size:13px; min-height:38px; line-height:1.4;">
@@ -268,7 +268,7 @@ function viewEventDetails(eventId) {
             <p style="color:#858894; font-size:14px; line-height:1.6; margin-bottom:12px;">
                 ${escapeHtml(ev.description || 'No description available for this event.')}
             </p>
-            <p class="event-info">📅 <strong>Date:</strong> ${ev.event_date}</p>
+            <p class="event-info">📅 <strong>Date:</strong> ${ev.event_date ? ev.event_date : 'To Be Announced'}</p>
             <p class="event-info">📍 <strong>Venue:</strong> ${escapeHtml(ev.venue || 'To BE Announced')}</p>
             <p class="event-info">🏛️ <strong>Organizer:</strong> ${escapeHtml(ev.organizer || 'Campus Team')}</p>
             <p class="event-info">👥 <strong>Capacity:</strong> ${ev.capacity || 200} participants</p>
@@ -371,7 +371,7 @@ async function fetchRegistrations() {
                     <div>
                         <strong style="font-size:16px;">${escapeHtml(ev.event_name || 'Event #' + r.event_id)}</strong><br>
                         <small style="color:#858894; display:block; margin-top:4px;">
-                            📅 Event Date: <strong>${ev.event_date || 'N/A'}</strong> | 📍 Venue: <strong>${escapeHtml(ev.venue || 'TBA')}</strong> | 📝 Registered on: ${r.registration_date}
+                            📅 Event Date: <strong>${ev.event_date ? ev.event_date : 'To Be Announced'}</strong> | 📍 Venue: <strong>${escapeHtml(ev.venue || 'TBA')}</strong> | 📝 Registered on: ${r.registration_date}
                         </small>
                     </div>
                     <button class="cancel-button" onclick="cancelRegistration(${r.event_id})">Cancel Registration</button>
@@ -537,7 +537,7 @@ async function deleteEvent(eventId) {
 // ==========================================
 // LOGIN & SIGN UP MODALS
 // ==========================================
-function openLogin() {
+function openLogin(prefillEmail = '') {
     const modal = document.getElementById('modal');
     const content = document.getElementById('modalContent');
 
@@ -546,12 +546,17 @@ function openLogin() {
         <div id="modalFormError" class="form-error hidden"></div>
         <form onsubmit="submitLogin(event)">
             <label style="color:#aaa; font-size:12px;">Email Address</label>
-            <input type="email" id="loginEmail" placeholder="your.name@muj.manipal.edu" required>
+            <input type="email" id="loginEmail" placeholder="your.name@muj.manipal.edu" value="${escapeHtml(prefillEmail)}" required>
 
             <label style="color:#aaa; font-size:12px;">Password</label>
             <input type="password" id="loginPassword" placeholder="••••••••" required>
 
-            <button type="submit" class="submit-button" style="margin-top:8px;">Sign In</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; margin-bottom:14px; font-size:12px;">
+                <a href="javascript:void(0)" onclick="openForgotPassword(document.getElementById('loginEmail')?.value || '')" style="color:#a39aff; text-decoration:none;">Forgot Password?</a>
+                <a href="javascript:void(0)" onclick="openSignUp()" style="color:#7165ff; text-decoration:none; font-weight:bold;">Create account</a>
+            </div>
+
+            <button type="submit" class="submit-button">Sign In</button>
             <p style="margin-top:16px; font-size:13px; color:#858894; text-align:center;">
                 New to Campus Events? 
                 <a href="javascript:void(0)" onclick="openSignUp()" style="color:#7165ff; font-weight:bold;">Create an account</a>
@@ -560,6 +565,96 @@ function openLogin() {
     `;
 
     modal.classList.remove('hidden');
+}
+
+// ==========================================
+// FORGOT PASSWORD MODAL
+// ==========================================
+function openForgotPassword(prefillEmail = '') {
+    const modal = document.getElementById('modal');
+    const content = document.getElementById('modalContent');
+
+    content.innerHTML = `
+        <h2 style="margin-bottom:10px; color:#ffffff;">Reset Password</h2>
+        <p style="color:#858894; font-size:13px; margin-bottom:16px; line-height:1.4;">
+            Enter your registered email address and choose your new password.
+        </p>
+        <div id="modalFormError" class="form-error hidden"></div>
+        <form onsubmit="submitForgotPassword(event)">
+            <label style="color:#aaa; font-size:12px;">Registered Email Address</label>
+            <input type="email" id="forgotEmail" placeholder="e.g. your.email@muj.manipal.edu" value="${escapeHtml(prefillEmail)}" required>
+
+            <label style="color:#aaa; font-size:12px;">New Password</label>
+            <input type="password" id="forgotNewPass" placeholder="••••••••" required>
+
+            <label style="color:#aaa; font-size:12px;">Confirm New Password</label>
+            <input type="password" id="forgotConfirmPass" placeholder="••••••••" required>
+
+            <button type="submit" class="submit-button" style="margin-top:8px;">Reset Password</button>
+            <p style="margin-top:16px; font-size:13px; color:#858894; text-align:center;">
+                Remembered your password? 
+                <a href="javascript:void(0)" onclick="openLogin(document.getElementById('forgotEmail')?.value || '')" style="color:#7165ff; font-weight:bold;">Back to Login</a>
+            </p>
+        </form>
+    `;
+
+    modal.classList.remove('hidden');
+}
+
+async function submitForgotPassword(e) {
+    e.preventDefault();
+    const email = document.getElementById('forgotEmail').value.trim();
+    const newPass = document.getElementById('forgotNewPass').value.trim();
+    const confirmPass = document.getElementById('forgotConfirmPass').value.trim();
+
+    if (newPass !== confirmPass) {
+        showModalError('Passwords do not match. Please verify your new password.');
+        return;
+    }
+
+    if (newPass.length < 4) {
+        showModalError('Password must be at least 4 characters long.');
+        return;
+    }
+
+    try {
+        // Check if user exists in Supabase
+        const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=user_id,name`, { headers });
+        const users = await checkRes.json();
+
+        if (!users || users.length === 0) {
+            showModalError('No registered account was found with this email address.');
+            return;
+        }
+
+        // Update password in Supabase
+        const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}`, {
+            method: 'PATCH',
+            headers: {
+                ...headers,
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({ password: newPass })
+        });
+
+        // Also notify local backend if available
+        fetch('/api/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, new_password: newPass })
+        }).catch(() => {});
+
+        if (patchRes.ok) {
+            showToast('Password reset successfully! 🎉 Please sign in.', 'success');
+            openLogin(email);
+        } else {
+            const err = await patchRes.json().catch(() => ({}));
+            showModalError(err.message || 'Failed to reset password. Please try again.');
+        }
+    } catch (err) {
+        console.error('Password reset error:', err);
+        showModalError('Network error while resetting password. Please check your connection.');
+    }
 }
 
 function openSignUp() {

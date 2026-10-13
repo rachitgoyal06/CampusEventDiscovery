@@ -29,7 +29,7 @@ public class EventDAO {
 
             ps.setString(1, event.getEventName());
             ps.setString(2, event.getDescription());
-            ps.setDate(3, Date.valueOf(event.getEventDate()));
+            ps.setDate(3, event.getEventDate() != null ? Date.valueOf(event.getEventDate()) : null);
             ps.setString(4, event.getVenue());
             ps.setString(5, event.getOrganizer());
             ps.setInt(6, event.getCapacity());
@@ -60,22 +60,16 @@ public class EventDAO {
 
             while (rs.next()) {
 
-                Event event = new Event(
-
-                    rs.getInt("event_id"),
-
-                    rs.getString("event_name"),
-
-                    rs.getString("description"),
-
-                    rs.getDate("event_date").toLocalDate(),
-
-                    rs.getString("venue"),
-
-                    rs.getString("organizer"),
-
-                    rs.getInt("capacity")
-                );
+                    Date d = rs.getDate("event_date");
+                    Event event = new Event(
+                        rs.getInt("event_id"),
+                        rs.getString("event_name"),
+                        rs.getString("description"),
+                        d != null ? d.toLocalDate() : null,
+                        rs.getString("venue"),
+                        rs.getString("organizer"),
+                        rs.getInt("capacity")
+                    );
 
                 events.add(event);
             }

@@ -33,6 +33,7 @@ public class Server {
         server.createContext("/api/events", new EventsHandler());
         server.createContext("/api/login", new LoginHandler());
         server.createContext("/api/signup", new SignUpHandler());
+        server.createContext("/api/forgot-password", new ForgotPasswordHandler());
         server.createContext("/api/registrations", new RegistrationsHandler());
 
         // Static files (frontend)
@@ -240,6 +241,52 @@ public class Server {
                 User newUser = new User(0, name, email, password, "STUDENT");
                 userDAO.addUser(newUser);
                 sendJsonResponse(exchange, 201, "{\"message\":\"Account created successfully\"}");
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                sendJsonResponse(exchange, 500, "{\"error\":\"" + escapeJson(ex.getMessage()) + "\"}");
+            }
+        }
+    }
+
+    // ==========================================
+    // /api/forgot-password Handler
+    // ==========================================
+    static class ForgotPasswordHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            setCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                sendJsonResponse(exchange, 405, "{\"error\":\"Method not allowed\"}");
+                return;
+            }
+
+            try {
+                String body = readRequestBody(exchange);
+                Map<String, String> data = parseSimpleJson(body);
+                String email = data.getOrDefault("email", "").trim();
+                String newPassword = data.getOrDefault("new_password", "").trim();
+
+                if (email.isEmpty() || newPassword.isEmpty()) {
+                    sendJsonResponse(exchange, 400, "{\"error\":\"Email and new password are required\"}");
+                    return;
+                }
+
+                User user = userDAO.getUserByEmail(email);
+                if (user == null) {
+                    sendJsonResponse(exchange, 404, "{\"error\":\"No account found with this email address\"}");
+                    return;
+                }
+
+                boolean updated = userDAO.updatePassword(email, newPassword);
+                if (updated) {
+                    sendJsonResponse(exchange, 200, "{\"message\":\"Password updated successfully\"}");
+                } else {
+                    sendJsonResponse(exchange, 500, "{\"error\":\"Failed to update password\"}");
+                }
             } catch (Exception ex) {
                 ex.printStackTrace();
                 sendJsonResponse(exchange, 500, "{\"error\":\"" + escapeJson(ex.getMessage()) + "\"}");
