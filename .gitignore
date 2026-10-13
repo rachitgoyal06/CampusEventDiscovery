@@ -1,3 +1,7 @@
 out/
 *.class
 .vscode/
+# Local environment files (should not be committed)
+.env
+.env.local
+backend/.env
