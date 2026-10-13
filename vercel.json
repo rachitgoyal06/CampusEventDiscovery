@@ -1,19 +1,12 @@
 {
   "version": 2,
-  "builds": [
+  "routes": [
     {
-      "src": "backend/Dockerfile",
-      "use": "@vercel/docker",
-      "config": { "maxLambdaSize": "50mb" }
+      "handle": "filesystem"
     },
     {
-      "src": "frontend/**",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "frontend/build" }
+      "src": "/(.*)",
+      "dest": "/frontend/$1"
     }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "backend/Dockerfile", "methods": ["GET","POST","PUT","DELETE"] },
-    { "src": "/(.*)", "dest": "/frontend/$1" }
   ]
 }

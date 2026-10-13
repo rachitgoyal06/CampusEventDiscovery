@@ -7,19 +7,19 @@ import java.sql.SQLException;
 public class DBConnection {
 
     private static final String HOST =
-            "aws-0-ap-northeast-1.pooler.supabase.com";
+            System.getenv("DB_HOST") != null ? System.getenv("DB_HOST") : "aws-0-ap-northeast-1.pooler.supabase.com";
 
     private static final String PORT =
-            "5432";
+            System.getenv("DB_PORT") != null ? System.getenv("DB_PORT") : "5432";
 
     private static final String DATABASE =
-            "postgres";
+            System.getenv("DB_NAME") != null ? System.getenv("DB_NAME") : "postgres";
 
     private static final String USER =
-            "postgres.ueaxokgriaobucaafuyi";
+            System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "postgres.ueaxokgriaobucaafuyi";
 
     private static final String PASSWORD =
-            "Rachit@0612";
+            System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "Rachit@0612";
 
     public static Connection getConnection() {
 
