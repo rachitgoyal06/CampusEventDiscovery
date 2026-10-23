@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Core Java Project Presentation - Campus Event Discovery</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+    <style>
+        :root {
+            --bg-dark: #08090d;
+            --bg-slide: #10121a;
+            --primary: #7c6cff;
+            --primary-glow: rgba(124, 108, 255, 0.3);
+            --accent: #ec4899;
+            --text-main: #f5f6fa;
+            --text-muted: #9499ab;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        /* Slide Deck Container */
+        .presentation-wrapper {
+            width: 100%;
+            max-width: 1100px;
+            aspect-ratio: 16 / 9;
+            background: var(--bg-slide);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.7), 0 0 40px -10px var(--primary-glow);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .slide {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            padding: 48px 56px;
+            position: relative;
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(124, 108, 255, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 90%, rgba(236, 72, 153, 0.05) 0%, transparent 35%);
+        }
+
+        .slide.active {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Slide Header */
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 14px;
+            margin-bottom: 24px;
+        }
+
+        .slide-category {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            color: var(--primary);
+            text-transform: uppercase;
+        }
+
+        .slide-number {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.06);
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        .slide-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 6px;
+            letter-spacing: -0.5px;
+        }
+
+        .slide-subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 22px;
+        }
+
+        /* Slide Body Content */
+        .slide-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px 20px;
+        }
+
+        .card h4 {
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card p, .card li {
+            color: var(--text-muted);
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+
+        ul {
+            padding-left: 18px;
+        }
+
+        li {
+            margin-bottom: 6px;
+        }
+
+        /* Code Block */
+        pre {
+            background: #090a0f;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            color: #a5b4fc;
+            overflow-x: auto;
+            line-height: 1.45;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th {
+            background: rgba(124, 108, 255, 0.15);
+            color: #ffffff;
+            text-align: left;
+            padding: 10px 12px;
+            font-weight: 700;
+            border: 1px solid var(--border);
+        }
+
+        td {
+            padding: 9px 12px;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+
+        .badge-pass {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+        }
+
+        /* Navigation Controls */
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 1100px;
+            margin-top: 18px;
+        }
+
+        .btn-nav {
+            background: var(--bg-slide);
+            border: 1px solid var(--border);
+            color: #ffffff;
+            padding: 10px 22px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-nav:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .progress-dots {
+            display: flex;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .dot.active {
+            background: var(--primary);
+            width: 24px;
+            border-radius: 12px;
+        }
+
+        .key-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="presentation-wrapper" id="deck">
+
+        <!-- SLIDE 0: TITLE SLIDE -->
+        <div class="slide active">
+            <div class="slide-header">
+                <span class="slide-category">OBJECT ORIENTED PROGRAMMING • CORE JAVA • SECTION R3</span>
+                <span class="slide-number">SLIDE 0 / 7</span>
+            </div>
+            <div class="slide-body" style="text-align: center; justify-content: center; align-items: center;">
+                <div style="background: rgba(124, 108, 255, 0.1); border: 1px solid var(--primary); color: #c4b5fd; font-size: 12px; font-weight: 800; letter-spacing: 2px; padding: 6px 16px; border-radius: 20px; text-transform: uppercase; margin-bottom: 20px;">
+                    Core Java Project Presentation • 7-Minute Slot
+                </div>
+                <h1 style="font-size: 44px; font-weight: 800; letter-spacing: -1px; margin-bottom: 12px; color: #fff;">
+                    Campus Event Discovery &<br><span style="background: linear-gradient(135deg, #a78bfa, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Registration System</span>
+                </h1>
+                <p style="color: var(--text-muted); font-size: 16px; max-width: 650px; margin-bottom: 32px;">
+                    An enterprise OOP-driven platform connecting university students with campus events, workshops, hackathons, and real-time registrations.
+                </p>
+                <div class="card" style="display: inline-flex; gap: 40px; padding: 16px 36px;">
+                    <div style="text-align: left;">
+                        <span style="font-size: 11px; color: var(--primary); font-weight: 800; text-transform: uppercase;">Team Members</span>
+                        <p style="color: #fff; font-weight: 700; margin-top: 2px;">• Rachit Goyal (2502052535)</p>
+                        <p style="color: #fff; font-weight: 700;">• Pradyumn Kabra (2502052536)</p>
+                    </div>
+                    <div style="text-align: left; border-left: 1px solid var(--border); padding-left: 30px;">
+                        <span style="font-size: 11px; color: var(--primary); font-weight: 800; text-transform: uppercase;">Institution</span>
+                        <p style="color: #fff; font-weight: 700; margin-top: 2px;">Manipal University Jaipur</p>
+                        <p style="color: var(--text-muted); font-size: 12px;">Section: R3 • October 2026</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 01: PROBLEM STATEMENT -->
+        <div class="slide">
+            <div class="slide-header">
+                <span class="slide-category">01 • PROBLEM STATEMENT & USE CASE</span>
+                <span class="slide-number">SLIDE 1 / 7</span>
+            </div>
+            <div class="slide-title">Connecting Students & Campus Life</div>
+            <div class="slide-subtitle">Solving event fragmentation and unmanaged registration workflows.</div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div style="display: flex; flex-direction: column; gap: 14px;">
+                        <div class="card">
+                            <h4>⚠️ Real-World Problem</h4>
+                            <p>Event notices in universities are scattered across unorganized WhatsApp chats, physical posters, and disconnected Google Forms. Students miss deadlines, venues overflow, and coordinators struggle with duplicate entries.</p>
+                        </div>
+                        <div class="card">
+                            <h4>👥 Intended Users</h4>
+                            <p><strong>Students</strong>: Discover verified technical, cultural, and sports events; register with official <code style="color: #c4b5fd;">@muj.manipal.edu</code> accounts.<br>
+                            <strong>Faculty & Admins</strong>: Publish events, track live capacities, and export attendee lists.</p>
+                        </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 14px;">
+                        <div class="card">
+                            <h4>🎯 Realistic Use Case</h4>
+                            <p>A student searches for upcoming hackathons, discovers <strong>Cyber Mafia</strong> & <strong>Code Of The Seas</strong>, verifies venue and capacity details, clicks "Register", and immediately receives an authenticated digital event pass.</p>
+                        </div>
+                        <div class="card" style="border-left: 4px solid var(--primary); background: rgba(124, 108, 255, 0.05);">
+                            <h4>📌 Core Project Objective</h4>
+                            <p style="color: #ffffff; font-weight: 600; font-size: 13.5px;">
+                                "To engineer an OOP-driven centralized event platform that streamlines discovery, eliminates duplicate registrations, and automates real-time campus event management."
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 02: OOP DESIGN -->
+        <div class="slide">
+            <div class="slide-header">
+                <span class="slide-category">02 • OBJECT-ORIENTED DESIGN</span>
+                <span class="slide-number">SLIDE 2 / 7</span>
+            </div>
+            <div class="slide-title">Architecture & The 4 OOP Pillars</div>
+            <div class="slide-subtitle">Structuring robust campus entities through core object-oriented principles.</div>
+            <div class="slide-body">
+                <div class="grid-4" style="margin-bottom: 16px;">
+                    <div class="card">
+                        <h4 style="color: #a78bfa;">🔒 Encapsulation</h4>
+                        <p>All model fields (<code style="color:#ddd;">userId</code>, <code style="color:#ddd;">eventName</code>, <code style="color:#ddd;">capacity</code>) are <code style="color:#ddd;">private</code> with controlled public getters/setters. Sensitive DB config is hidden.</p>
+                    </div>
+                    <div class="card">
+                        <h4 style="color: #38bdf8;">🧬 Inheritance</h4>
+                        <p><code style="color:#ddd;">Student extends User</code> and <code style="color:#ddd;">Admin extends User</code>. Child classes reuse identity attributes and chain constructors via <code style="color:#ddd;">super(...)</code>.</p>
+                    </div>
+                    <div class="card">
+                        <h4 style="color: #34d399;">🎭 Polymorphism</h4>
+                        <p><strong>Overriding</strong>: Subclasses override <code style="color:#ddd;">displayUser()</code> for specialized output.<br><strong>Overloading</strong>: Default & parameterized constructors in <code style="color:#ddd;">Event</code>, <code style="color:#ddd;">User</code>.</p>
+                    </div>
+                    <div class="card">
+                        <h4 style="color: #f472b6;">🧩 Abstraction</h4>
+                        <p><code style="color:#ddd;">interface Registrable</code> outlines registration contracts without leaking SQL/JDBC implementation. DAO layer isolates DB logic.</p>
+                    </div>
+                </div>
+                <div class="card" style="padding: 12px 18px;">
+                    <h4>📐 Class Relationship Overview</h4>
+                    <p style="font-size: 12px;"><strong>User</strong> (Superclass) &larr; [Inherits] <strong>Student</strong> & <strong>Admin</strong> | <strong>Registrable</strong> (Interface) &larr; [Implements] <strong>RegistrationDAO</strong> | <strong>Registration</strong> associates <strong>User</strong> & <strong>Event</strong></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 03: CORE JAVA CONCEPTS -->
+        <div class="slide">
+            <div class="slide-header">
+                <span class="slide-category">03 • CORE JAVA CONCEPTS USED</span>
+                <span class="slide-number">SLIDE 3 / 7</span>
+            </div>
+            <div class="slide-title">Enterprise Java Implementation</div>
+            <div class="slide-subtitle">Technologies and Java language constructs powering the system.</div>
+            <div class="slide-body">
+                <div class="grid-3">
+                    <div class="card">
+                        <h4>📦 Packages & Access Modifiers</h4>
+                        <ul>
+                            <li>Modular package architecture: <code style="color:#c4b5fd;">model</code>, <code style="color:#c4b5fd;">dao</code>, <code style="color:#c4b5fd;">interfaces</code>, <code style="color:#c4b5fd;">util</code>.</li>
+                            <li>Strict encapsulation with <code style="color:#c4b5fd;">private</code>, <code style="color:#c4b5fd;">public</code>, <code style="color:#c4b5fd;">static</code>, and <code style="color:#c4b5fd;">final</code> constants.</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <h4>🛡️ Exception Handling</h4>
+                        <ul>
+                            <li>Robust <code style="color:#c4b5fd;">try-catch-finally</code> and <strong>try-with-resources</strong> preventing JDBC connection leaks.</li>
+                            <li>Defensive null checks on unscheduled events (e.g. <code style="color:#c4b5fd;">rs.getDate() != null</code>).</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <h4>📚 Collections & Generics</h4>
+                        <ul>
+                            <li><code style="color:#c4b5fd;">List&lt;Event&gt;</code> & <code style="color:#c4b5fd;">ArrayList</code> for dynamic event records.</li>
+                            <li><code style="color:#c4b5fd;">Set&lt;Integer&gt;</code> for O(1) duplicate registration validation.</li>
+                            <li><code style="color:#c4b5fd;">Map&lt;String, String&gt;</code> for REST payload mapping.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 16px;">
+                    <h4>🔌 JDBC & PostgreSQL Cloud Driver</h4>
+                    <p>Uses <code style="color:#c4b5fd;">postgresql-42.7.13.jar</code> to establish pooled SSL connections to Supabase PostgreSQL, executing parameterized <code style="color:#c4b5fd;">PreparedStatement</code> queries to guarantee SQL-injection immunity.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 04: PROGRAM DESIGN -->
+        <div class="slide">
+            <div class="slide-header">
+                <span class="slide-category">04 • PROGRAM FLOW & IMPLEMENTATION</span>
+                <span class="slide-number">SLIDE 4 / 7</span>
+            </div>
+            <div class="slide-title">Execution Flow & Code Walkthrough</div>
+            <div class="slide-subtitle">How user requests traverse through interfaces, DAOs, and database.</div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div>
+                        <div class="card" style="margin-bottom: 14px;">
+                            <h4>🔄 Request Pipeline</h4>
+                            <p><strong>1. Input</strong>: User triggers action on UI/CLI.<br>
+                            <strong>2. Dispatch</strong>: REST Handler verifies authentication token.<br>
+                            <strong>3. DAO Layer</strong>: DAO opens connection via <code style="color:#c4b5fd;">DBConnection</code>.<br>
+                            <strong>4. Persistence</strong>: Parameterized query executed on PostgreSQL.<br>
+                            <strong>5. Output</strong>: Hydrated objects serialized into JSON/ticket pass.</p>
+                        </div>
+                        <div class="card">
+                            <h4>💡 Key Design Pattern</h4>
+                            <p><strong>Data Access Object (DAO) Pattern</strong> completely separates domain models from storage mechanisms, ensuring high cohesion and low coupling.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <pre><code>// Inheritance & Constructor Chaining
+public class Student extends User {
+    private String studentId;
+    private String course;
+
+    public Student(int userId, String name, 
+                   String email, String password, 
+                   String studentId, String course) {
+        super(userId, name, email, password, "STUDENT");
+        this.studentId = studentId;
+        this.course = course;
+    }
+
+    @Override // Runtime Polymorphism
+    public void displayUser() {
+        System.out.println("Student: " + getName() 
+            + " | Course: " + course);
+    }
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 05: DEMO -->
+        <div class="slide">
+            <div class="slide-header">
+                <span class="slide-category">05 • APPLICATION DEMONSTRATION</span>
+                <span class="slide-number">SLIDE 5 / 7</span>
+            </div>
+            <div class="slide-title">Key Feature Demonstrations</div>
+            <div class="slide-subtitle">Live workflows demonstrated across student and administrative roles.</div>
+            <div class="slide-body">
+                <div class="grid-3">
+                    <div class="card">
+                        <h4>1️⃣ Student Authentication</h4>
+                        <p><strong>Input</strong>: Student inputs credentials.<br>
+                        <strong>Processing</strong>: Enforces <code style="color:#c4b5fd;">@muj.manipal.edu</code> email domain; verifies password hash; hydrates <code style="color:#c4b5fd;">Student</code> object.<br>
+                        <strong>Output</strong>: Personalized student dashboard with ticket pass access.</p>
+                    </div>
+                    <div class="card">
+                        <h4>2️⃣ Discovery & Booking</h4>
+                        <p><strong>Input</strong>: Filters by Category ("Technical") or searches "Cyber".<br>
+                        <strong>Processing</strong>: Real-time filtering; executes <code style="color:#c4b5fd;">registerForEvent(userId, eventId)</code>.<br>
+                        <strong>Output</strong>: Instant "✓ Registered" state; decrements available capacity.</p>
+                    </div>
+                    <div class="card">
+                        <h4>3️⃣ Admin Event Control</h4>
+                        <p><strong>Input</strong>: Admin creates or deletes campus events.<br>
+                        <strong>Processing</strong>: Checks <code style="color:#c4b5fd;">role.equals("ADMIN")</code>; handles null dates safely; executes transactional cascading delete.<br>
+                        <strong>Output</strong>: Event catalog updates across all connected clients.</p>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 16px; border-left: 4px solid var(--primary);">
+                    <h4>🔗 Object Collaboration in Action</h4>
+                    <p>When booking: <code style="color:#c4b5fd;">Student</code> &rarr; calls <code style="color:#c4b5fd;">RegistrationDAO</code> &rarr; inserts into DB &rarr; instantiates <code style="color:#c4b5fd;">Registration</code> record &rarr; reflects on student pass.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 06: TESTING & RESULTS -->
+        <div class="slide">
+            <div class="slide-header">
+                <span class="slide-category">06 • TESTING, RESULTS & LIMITATIONS</span>
+                <span class="slide-number">SLIDE 6 / 7</span>
+            </div>
+            <div class="slide-title">Verification, Results & Boundaries</div>
+            <div class="slide-subtitle">Evidence of system stability under expected and edge-case conditions.</div>
+            <div class="slide-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Test Case</th>
+                            <th>Input / Scenario</th>
+                            <th>Expected Behavior</th>
+                            <th>Actual Result</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>TC-01: Domain Check</strong></td>
+                            <td>Sign up with personal <code style="color:#c4b5fd;">@gmail.com</code></td>
+                            <td>Block signup; require institutional email</td>
+                            <td>Blocked with university email requirement alert</td>
+                            <td><span class="badge-pass">PASSED</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>TC-02: Duplicate Prevention</strong></td>
+                            <td>Clicking "Register" twice on same event</td>
+                            <td>Disallow second registration</td>
+                            <td>Blocked; button reflects "✓ Registered" state</td>
+                            <td><span class="badge-pass">PASSED</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>TC-03: Null Date Handling</strong></td>
+                            <td>Loading event with unannounced date (Cyber Mafia)</td>
+                            <td>Display "Date TBA" without NullPointerException</td>
+                            <td>Rendered "⚡ Date TBA" pulsating badge</td>
+                            <td><span class="badge-pass">PASSED</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>TC-04: Admin Access</strong></td>
+                            <td>Student account attempting event deletion</td>
+                            <td>Deny action; restrict to role ADMIN</td>
+                            <td>Blocked with admin authorization prompt</td>
+                            <td><span class="badge-pass">PASSED</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="grid-2" style="margin-top: 14px;">
+                    <div class="card">
+                        <h4>🛡️ Exception Handling Tested</h4>
+                        <p><code style="color:#c4b5fd;">SQLException</code> catches on pool disconnection; safe null checks in <code style="color:#c4b5fd;">EventDAO</code> prevent application crashes.</p>
+                    </div>
+                    <div class="card">
+                        <h4>⚠️ Known Limitations</h4>
+                        <p>Currently configured for free campus events (paid delegate fees not implemented); email OTP delivery bound to 30 emails/hr on free tier.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 07: CONCLUSION -->
+        <div class="slide">
+            <div class="slide-header">
+                <span class="slide-category">07 • WRAP-UP & LEARNING</span>
+                <span class="slide-number">SLIDE 7 / 7</span>
+            </div>
+            <div class="slide-title">Conclusion & Future Scope</div>
+            <div class="slide-subtitle">Reflecting on learning outcomes and architectural extensibility.</div>
+            <div class="slide-body">
+                <div class="grid-3" style="margin-bottom: 20px;">
+                    <div class="card">
+                        <h4>🏆 Key Outcomes</h4>
+                        <p>Built a full-stack, enterprise-grade Core Java application connecting real cloud PostgreSQL with clean role-based event management.</p>
+                    </div>
+                    <div class="card">
+                        <h4>💡 Core OOP Takeaway</h4>
+                        <p><strong>Interface-Driven Design</strong> and the <strong>DAO Pattern</strong> transformed raw SQL into modular, testable, and extensible software components.</p>
+                    </div>
+                    <div class="card">
+                        <h4>🚀 Future Roadmap</h4>
+                        <p>1. QR Code physical gate verification app.<br>2. Automated Google Calendar & .ics sync.<br>3. Certificate generation for attendees.</p>
+                    </div>
+                </div>
+                <div class="card" style="text-align: center; background: rgba(124, 108, 255, 0.08); border-color: var(--primary); padding: 22px;">
+                    <h3 style="color: #ffffff; font-size: 19px; font-weight: 800; letter-spacing: -0.3px;">
+                        "Applying object-oriented design principles elevates code from a simple script into a robust, scalable enterprise architecture."
+                    </h3>
+                    <p style="color: var(--primary); font-size: 13px; font-weight: 700; margin-top: 6px;">Thank You! Questions & Answers</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Presentation Controls -->
+    <div class="controls">
+        <button class="btn-nav" id="prevBtn" onclick="prevSlide()">← Previous</button>
+        <div class="progress-dots" id="dotContainer"></div>
+        <button class="btn-nav" id="nextBtn" onclick="nextSlide()">Next →</button>
+    </div>
+    <div style="margin-top: 10px;" class="key-hint">
+        Use <strong>Left / Right Arrow Keys</strong> or <strong>Spacebar</strong> to navigate. Press <strong>F</strong> for fullscreen.
+    </div>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        const dotContainer = document.getElementById('dotContainer');
+        let currentSlide = 0;
+
+        // Initialize progress dots
+        slides.forEach((_, idx) => {
+            const dot = document.createElement('div');
+            dot.className = `dot ${idx === 0 ? 'active' : ''}`;
+            dot.onclick = () => goToSlide(idx);
+            dotContainer.appendChild(dot);
+        });
+
+        function updateSlide() {
+            slides.forEach((s, idx) => {
+                s.classList.toggle('active', idx === currentSlide);
+            });
+            document.querySelectorAll('.dot').forEach((d, idx) => {
+                d.classList.toggle('active', idx === currentSlide);
+            });
+            document.getElementById('prevBtn').disabled = currentSlide === 0;
+            document.getElementById('nextBtn').disabled = currentSlide === slides.length - 1;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlide();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+
+        function goToSlide(idx) {
+            currentSlide = idx;
+            updateSlide();
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                prevSlide();
+            } else if (e.key.toLowerCase() === 'f') {
+                if (!document.fullscreenElement) {
+                    document.getElementById('deck').requestFullscreen().catch(()=>{});
+                } else {
+                    document.exitFullscreen().catch(()=>{});
+                }
+            }
+        });
+    </script>
+</body>
+</html>
