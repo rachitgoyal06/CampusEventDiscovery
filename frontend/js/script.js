@@ -171,6 +171,27 @@ function getCategoryEmoji(category) {
     }
 }
 
+let currentCategoryFilter = 'all';
+
+function setCategoryFilter(category, btnElement) {
+    currentCategoryFilter = category;
+    document.querySelectorAll('.category-pills .pill-btn').forEach(btn => btn.classList.remove('active'));
+    if (btnElement) {
+        btnElement.classList.add('active');
+    }
+    displayEvents();
+}
+
+function getThemeClass(category) {
+    switch (category) {
+        case 'Technical': return 'theme-tech';
+        case 'Sports': return 'theme-sports';
+        case 'Cultural': return 'theme-culture';
+        case 'Workshop': return 'theme-work';
+        default: return 'theme-tech';
+    }
+}
+
 // ==========================================
 // RENDER EVENTS
 // ==========================================
@@ -179,7 +200,7 @@ function displayEvents() {
     if (!container) return;
 
     const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
-    const selectedCategory = document.getElementById('categoryFilter')?.value || 'all';
+    const selectedCategory = currentCategoryFilter || 'all';
 
     const filtered = allEvents.filter(ev => {
         const category = getEventCategory(ev);
@@ -202,21 +223,27 @@ function displayEvents() {
     container.innerHTML = filtered.map(ev => {
         const category = getEventCategory(ev);
         const emoji = getCategoryEmoji(category);
+        const theme = getThemeClass(category);
         const isRegistered = userRegisteredEventIds.has(ev.event_id);
         const isAdmin = currentUser && currentUser.role === 'ADMIN';
 
         return `
             <div class="event-card">
-                <div class="event-image">${emoji}</div>
+                <div class="event-banner ${theme}">
+                    <span class="banner-icon">${emoji}</span>
+                    <span class="date-badge-floating ${!ev.event_date ? 'date-badge-tba' : ''}">
+                        ${ev.event_date ? '📅 ' + ev.event_date : '⚡ Date TBA'}
+                    </span>
+                </div>
                 <div class="event-content">
-                    <span class="event-category badge-${category}">${category} • ${escapeHtml(ev.organizer || 'Campus')}</span>
+                    <span class="category-tag badge-${category}">${category} • ${escapeHtml(ev.organizer || 'Campus')}</span>
                     <h3>${escapeHtml(ev.event_name)}</h3>
-                    <p class="event-info">📅 <strong>Date:</strong> ${ev.event_date ? ev.event_date : 'To Be Announced'}</p>
-                    <p class="event-info">📍 <strong>Venue:</strong> ${escapeHtml(ev.venue || 'To BE Announced')}</p>
-                    <p class="event-info">👥 <strong>Capacity:</strong> ${ev.capacity || 200}</p>
-                    <p style="color:#9da0ad; margin:10px 0 14px; font-size:13px; min-height:38px; line-height:1.4;">
-                        ${escapeHtml(ev.description || 'No additional description provided.')}
-                    </p>
+                    <p class="event-desc">${escapeHtml(ev.description || 'No additional description provided.')}</p>
+
+                    <div class="event-meta">
+                        <div class="meta-item">📍 <strong>Venue:</strong> ${escapeHtml(ev.venue || 'To BE Announced')}</div>
+                        <div class="meta-item">👥 <strong>Capacity:</strong> ${ev.capacity || 200} spots</div>
+                    </div>
 
                     <div class="event-buttons">
                         <button onclick="viewEventDetails(${ev.event_id})">Details</button>
@@ -227,7 +254,7 @@ function displayEvents() {
                             </button>
                         ` : `
                             <button class="register-button" onclick="registerEvent(${ev.event_id})">
-                                Register
+                                Register Now
                             </button>
                         `}
 
@@ -367,12 +394,19 @@ async function fetchRegistrations() {
         container.innerHTML = list.map(r => {
             const ev = r.events || {};
             return `
-                <div class="registration-item">
-                    <div>
-                        <strong style="font-size:16px;">${escapeHtml(ev.event_name || 'Event #' + r.event_id)}</strong><br>
-                        <small style="color:#858894; display:block; margin-top:4px;">
-                            📅 Event Date: <strong>${ev.event_date ? ev.event_date : 'To Be Announced'}</strong> | 📍 Venue: <strong>${escapeHtml(ev.venue || 'TBA')}</strong> | 📝 Registered on: ${r.registration_date}
-                        </small>
+                <div class="ticket-card">
+                    <div class="ticket-header">
+                        <div>
+                            <span class="ticket-badge">CONFIRMED PASS</span>
+                            <h3 class="ticket-title">${escapeHtml(ev.event_name || 'Event #' + r.event_id)}</h3>
+                        </div>
+                        <div style="font-size:32px;">🎟️</div>
+                    </div>
+                    <div class="ticket-meta">
+                        <p>📅 <strong>Date:</strong> <span>${ev.event_date ? ev.event_date : 'To Be Announced'}</span></p>
+                        <p>📍 <strong>Venue:</strong> <span>${escapeHtml(ev.venue || 'To BE Announced')}</span></p>
+                        <p>👤 <strong>Pass Holder:</strong> <span>${escapeHtml(currentUser.name)}</span> (Pass #${r.registration_id})</p>
+                        <p>📝 <strong>Registered On:</strong> <span>${r.registration_date}</span></p>
                     </div>
                     <button class="cancel-button" onclick="cancelRegistration(${r.event_id})">Cancel Registration</button>
                 </div>
