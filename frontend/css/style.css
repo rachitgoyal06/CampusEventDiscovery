@@ -61,14 +61,53 @@ body {
 }
 
 .logo {
-    font-size: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: #ffffff;
+}
+
+.brand-logo-img {
+    height: 48px;
+    width: auto;
+    max-width: 130px;
+    object-fit: contain;
+    border-radius: 8px;
+    transition: transform 0.25s ease, filter 0.25s ease;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+}
+
+.logo:hover .brand-logo-img {
+    transform: scale(1.05);
+}
+
+.brand-text-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    line-height: 1.15;
+}
+
+.brand-title {
+    font-size: 20px;
     font-weight: 800;
     letter-spacing: -0.5px;
     color: #ffffff;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
+}
+
+.brand-title span {
+    background: linear-gradient(135deg, var(--primary), #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.brand-subtitle {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
 }
 
 .logo-badge {
@@ -78,12 +117,6 @@ body {
     border-radius: 8px;
     font-size: 14px;
     font-weight: 700;
-}
-
-.logo span {
-    background: linear-gradient(135deg, #fff, #99a2c2);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
 }
 
 .nav-links {
@@ -292,6 +325,20 @@ body {
     margin-bottom: 16px;
     display: inline-block;
     filter: drop-shadow(0 10px 15px rgba(0,0,0,0.4));
+}
+
+.hero-card-logo {
+    max-width: 170px;
+    height: auto;
+    margin: 0 auto 18px;
+    display: block;
+    border-radius: 10px;
+    filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.6));
+    transition: transform 0.3s ease;
+}
+
+.hero-card:hover .hero-card-logo {
+    transform: scale(1.04);
 }
 
 .hero-card h2 {
@@ -1010,15 +1057,45 @@ footer {
     margin-top: 40px;
 }
 
+.footer-brand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 12px;
+    text-align: left;
+}
+
+.footer-logo-img {
+    height: 48px;
+    width: auto;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
 footer h3 {
     color: #ffffff;
     font-size: 16px;
     font-weight: 700;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 footer p {
     color: var(--text-dim);
+    margin: 0;
+}
+
+.footer-sub {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 10px !important;
+}
+
+@media (max-width: 600px) {
+    .footer-brand {
+        flex-direction: column;
+        text-align: center;
+    }
 }
 
 /* =========================================
